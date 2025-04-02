@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Neo Browser 1.1.2</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        width: 100%;
+        height: 100vh;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .browser-window {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        width: 100%;
+        position: relative;
+      }
+
+      #toolbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 10px;
+        background: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        z-index: 99999999;
+        height: 60px;
+        pointer-events: auto;
+      }
+
+      .nav-buttons {
+        display: flex;
+        gap: 5px;
+        z-index: 99999999;
+        pointer-events: auto;
+      }
+
+      button {
+        padding: 8px 12px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999999;
+        pointer-events: auto;
+      }
+
+      button:hover {
+        background: #f0f0f0;
+      }
+
+      .url-bar {
+        flex: 1;
+        display: flex;
+        gap: 5px;
+        z-index: 99999999;
+        pointer-events: auto;
+      }
+
+      #urlInput {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        height: 40px;
+        z-index: 99999999;
+        pointer-events: auto;
+      }
+
+      .content-area {
+        flex: 1;
+        margin-top: 60px;
+        position: relative;
+        height: calc(100vh - 60px);
+      }
+
+      #webview {
+        width: 100%;
+        height: 100%;
+        border: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+      }
+
+      .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: transparent;
+        z-index: 99999998;
+        pointer-events: none;
+      }
+
+      /* Icons for navigation */
+      .nav-icon {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .home-icon {
+        font-size: 20px;
+        color: #333;
+      }
+
+      #display-warning {
+        position: fixed;
+        top: 60px;
+        /* Below the toolbar */
+        left: 0;
+        right: 0;
+        background-color: #ff4444;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        z-index: 999999;
+        font-weight: bold;
+        display: none;
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      /* Add overlay when warning is shown */
+      .warning-active .content-area {
+        opacity: 0.7;
+        pointer-events: none;
+      }
+
+      .exit-button {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        margin-left: 10px;
+        transition: background-color 0.2s;
+      }
+
+      .exit-button:hover {
+        background-color: #c82333;
+      }
+
+      /* Update the url-bar class to accommodate the exit button */
+      .url-bar {
+        flex: 1;
+        display: flex;
+        gap: 5px;
+        z-index: 99999999;
+        pointer-events: auto;
+        margin-right: 10px;
+      }
+
+      .browser-window.hide-toolbar #toolbar {
+        display: none !important;
+      }
+
+      .browser-window.hide-urlBar #urlBar {
+        display: none !important;
+      }
+
+      .browser-window.hide-urlBar #urlBar {
+        display: none !important;
+      }
+
+      .browser-window.hide-toolbar .content-area {
+        margin-top: 0;
+        height: 100vh;
+      }
+
+      #error-message {
+        animation: slideIn 0.3s ease-out;
+      }
+
+      /* Update toolbar layout for when URL bar is hidden */
+      #toolbar {
+        justify-content: space-between;
+      }
+
+      #loading-indicator {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 24px;
+        font-weight: bold;
+        z-index: 1000;
+        display: none;
+      }
+
+      .offline-warning {
+        background-color: #ff4444 !important;
+      }
+
+      .back-arrow,
+      .back-forward,
+      .refresh button {
+        pointer-events: auto;
+        user-select: none;
+        -webkit-user-select: none;
+        outline: none !important;
+        transition: all 0.2s ease-in-out;
+      }
+
+      .back-arrow:focus,
+      .back-forward:focus,
+      .refresh button:focus {
+        outline: none !important;
+      }
+
+      #back-arrow.no-hover {
+        pointer-events: none !important;
+        cursor: not-allowed !important;
+        opacity: 0.4 !important;
+        background: #f5f5f5 !important;
+        border-color: #ddd !important;
+      }
+
+      #back-arrow.no-hover:hover {
+        background: #f5f5f5 !important;
+        cursor: not-allowed !important;
+      }
+
+      #back-arrow:not(.no-hover):hover {
+        background: #f0f0f0;
+        cursor: pointer;
+      }
+
+      #webview:focus {
+        outline: none !important;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translate(-50%, -100%);
+          opacity: 0;
+        }
+
+        to {
+          transform: translate(-50%, 0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="browser-window">
+      <div class="overlay"></div>
+      <div id="toolbar">
+        <div class="nav-buttons" id="nav-buttons">
+          <button
+            onclick="goBack()"
+            class="back-arrow"
+            id="back-arrow"
+            title="Back"
+          >
+            <span class="nav-icon">←</span>
+          </button>
+          <button onclick="goForward()" title="Forward" class="back-forward">
+            <span class="nav-icon">→</span>
+          </button>
+          <div id="rld-btn" class="refresh">
+            <button onclick="refreshPage()" title="Refresh">
+              <span class="nav-icon">↻</span>
+            </button>
+          </div>
+        </div>
+        <div class="url-bar" id="urlBar">
+          <input
+            type="text"
+            id="urlInput"
+            placeholder="Type a URL and press the Enter key"
+          />
+          <!-- <button onclick="navigate()">Go</button> -->
+        </div>
+
+        <div class="exit-btn" id="exit-btn">
+          <button
+            onclick="exitApp()"
+            class="exit-button"
+            id="exit-button"
+            title="Exit Browser"
+          >
+            Exit
+          </button>
+        </div>
+      </div>
+      <div class="content-area">
+        <!-- <div id="loading-indicator">Loading!</div> -->
+        <webview
+          id="webview"
+          src="http://localhost:4200"
+          allowpopups
+          partition="persist:mainwebview"
+          webpreferences="allowRunningInsecureContent=yes, javascript=yes"
+        ></webview>
+      </div>
+    </div>
+
+    <script>
+      // Update the JavaScript code for URL checking and toolbar visibility
+      const urlInput = document.getElementById("urlInput");
+      const webview = document.getElementById("webview");
+      let HOME_URL = "";
+      let isToolbarHidden = false;
+      let isOnline = navigator.onLine;
+      let reconnectionTimer = null;
+      // Add after your existing variable declarations
+      let lastTabTime = 0;
+      let tabSwitchCount = 0;
+      let tabPressCount = 0;
+      let isTestMode = false; // Set this based on your test URL detection
+      // Add these event listeners
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      let isNavigating = false;
+      let navigationTimeout = null;
+
+      function handleTabPress(event) {
+        if (event.key === "Tab") {
+          const currentTime = new Date().getTime();
+
+          // Increment tab press count
+          tabPressCount++;
+
+          // Detect rapid tab presses
+          if (currentTime - lastTabTime < 500) {
+            // 500ms threshold for rapid presses
+            tabSwitchCount++;
+            console.log("Tab switch attempt detected:", {
+              tabPressCount,
+              tabSwitchCount,
+              timeSinceLastPress: currentTime - lastTabTime,
+            });
+
+            // Notify main process about tab switch attempt
+            try {
+              window.electronAPI.sendToMain("tab-switch-detected", {
+                tabPressCount,
+                tabSwitchCount,
+                timestamp: currentTime,
+              });
+            } catch (error) {
+              console.error("Error sending tab switch event:", error);
+            }
+          }
+
+          // If in test mode, prevent all tab navigation
+          if (isTestMode) {
+            event.preventDefault();
+            event.stopPropagation();
+            webview.focus();
+            return false;
+          }
+
+          // Only allow tabbing within allowed elements (url input)
+          const allowedElements = ["urlInput"];
+          if (!allowedElements.includes(event.target.id)) {
+            event.preventDefault();
+            event.stopPropagation();
+            webview.focus();
+          }
+
+          lastTabTime = currentTime;
+        }
+      }
+
+      // Debounced navigation function
+      function debounceNavigation(func, wait) {
+        return function executedFunction(...args) {
+          if (navigationTimeout) {
+            clearTimeout(navigationTimeout);
+          }
+
+          navigationTimeout = setTimeout(() => {
+            func.apply(this, args);
+          }, wait);
+        };
+      }
+
+      // Add these constants at the top of your script
+      let ALLOWED_DOMAINS = [
+        "examly.io",
+        "examly.net",
+        "iamneo.ai",
+        "examly.test:4200",
+        "pscollege841.examly.test:4200",
+        "chromewebstore.google.com", // Updated this line
+        "google.com",
+        "chatgpt.com",
+        "youtube.com",
+      ];
+      // Add function to fetch and add additional domains
+      async function loadAdditionalDomains() {
+        try {
+          // Option 2: If domains are in S3
+          const response = await fetch(
+            "https://images-examly-io.s3.us-east-1.amazonaws.com/neo-checker/custom-domains.json"
+          );
+          const data = await response.json();
+
+          // Extract domain strings from the response
+          const additionalDomains = data
+            .map((item) =>
+              typeof item === "object" ? item.school_domain : item
+            )
+            .filter((domain) => domain); // Remove any null/undefined values
+
+          // Add new domains to the allowed list
+          ALLOWED_DOMAINS = [...ALLOWED_DOMAINS, ...additionalDomains];
+
+          console.log("Successfully loaded additional domains");
+        } catch (error) {
+          console.error("Error loading additional domains:", error);
+        }
+      }
+      // Add domain validation function
+      function isAllowedDomain(url) {
+        try {
+          const urlObj = new URL(url);
+          console.log("ALLOWED-->", ALLOWED_DOMAINS);
+
+          return ALLOWED_DOMAINS.some((domain) => {
+            // Handle if domain is an object with school_domain property
+            const domainString =
+              typeof domain === "object" ? domain.school_domain : domain;
+
+            // Skip if domainString is undefined or null
+            if (!domainString) return false;
+
+            // Handle domains with ports
+            const parts = domainString.split(":");
+            const domainPart = parts[0];
+            const portPart = parts[1];
+            console.log("domainPart-->", domainPart, portPart);
+            // Check if the URL's hostname ends with the domain
+            // This will match both exact domains and subdomains
+            const hostMatches =
+              urlObj.hostname
+                .toLowerCase()
+                .endsWith(domainPart.toLowerCase()) ||
+              domainPart.toLowerCase().endsWith(urlObj.hostname.toLowerCase());
+
+            // If domain has a port, check if it matches
+            if (portPart) {
+              return hostMatches && urlObj.port === portPart;
+            }
+            console.log(portPart);
+            return hostMatches;
+          });
+        } catch (error) {
+          console.error("Error checking domain:", error);
+          return false;
+        }
+      }
+      // Function to check if URL is a dashboard URL
+      function isDashboardUrl(url) {
+        try {
+          console.log("url-->change", url);
+          // Check for empty URL or home page cases
+          // if (!url || url === '' || url === 'about:blank') return true;
+          // // Check for localhost URLs
+          // if (url.includes(':4200') || url.includes('localhost')) return true;
+          // Check for no-network page
+          if (url.includes("no-network") || url.includes(":4200")) return true;
+          return false;
+        } catch (error) {
+          console.error("Error checking URL:", error);
+          return false;
+        }
+      }
+
+      // function isTestUrl(url) {
+      //     try {
+      //         return url.includes('mycourses');
+      //     } catch (error) {
+      //         console.error('Error checking URL:', error);
+      //         return false;
+      //     }
+      // }
+
+      function updateUrlBarVisibility(url) {
+        const browserWindow = document.querySelector(".browser-window");
+        // isToolbarHidden = false;
+
+        // browserWindow.classList.remove('hide-toolbar');
+        if (true) {
+          browserWindow.classList.add("hide-urlBar");
+          urlInput.value = url;
+        } else {
+          browserWindow.classList.remove("hide-urlBar");
+          urlInput.value = "";
+        }
+      }
+
+      // Function to update toolbar visibility
+      // function updateToolbarVisibility(show) {
+      //     const browserWindow = document.querySelector('.browser-window');
+      //     isToolbarHidden = !show;
+
+      //     if (isToolbarHidden) {
+      //         browserWindow.classList.add('hide-toolbar');
+      //     } else {
+      //         browserWindow.classList.remove('hide-toolbar');
+      //     }
+      // }
+      function isTestUrl(url) {
+        try {
+          const isTest =
+            url.includes("/test?id=") || url.includes("/mytest?id=");
+          isTestMode = isTest; // Update the global test mode
+          return isTest;
+        } catch (error) {
+          console.error("Error checking test URL:", error);
+          return false;
+        }
+      }
+
+      // const backButtonStyles = `
+      //     #back-arrow.no-hover {
+      //         pointer-events: none !important;
+      //         cursor: default !important;
+      //         opacity: 0.5 !important;
+      //         background: #f0f0f0 !important;
+      //     }
+
+      //     #back-arrow.no-hover:hover {
+      //         background: #f0f0f0 !important;
+      //     }
+
+      //     /* Ensure other toolbar elements remain interactive */
+      //     #toolbar .nav-buttons button:not(#back-arrow),
+      //     #toolbar .url-bar,
+      //     #toolbar .exit-btn {
+      //         pointer-events: auto !important;
+      //         cursor: pointer !important;
+      //     }
+      //     `;
+
+      // Add styles to document
+      // const styleSheet = document.createElement("style");
+      // styleSheet.textContent = backButtonStyles;
+      // document.head.appendChild(styleSheet);
+      function isRestrictedEndpoint(url) {
+        return (
+          url.includes("/login") ||
+          url.includes("/dashboard") ||
+          url.includes("/pwd") ||
+          url.includes("/course") ||
+          url.includes("create-profile") ||
+          url.includes("signup") ||
+          url.includes("/otpverification")
+        );
+      }
+
+      function updateBackButtonVisiblity(url) {
+        const backButton = document.getElementById("back-arrow");
+        if (backButton && isRestrictedEndpoint(url)) {
+          backButton.classList.add("no-hover");
+        } else {
+          // showError("You cannot navigate out of this tab.")
+          backButton.classList.remove("no-hover");
+        }
+      }
+
+      // Function to handle URL changes
+      function handleUrlChange(url) {
+        if (isDashboardUrl(url)) {
+          updateUrlBarVisibility(url);
+          updateBackButtonVisiblity(url);
+          // updateToolbarVisibility(true); // show toolbar
+          urlInput.value = url; // clear URL input
+        } else {
+          updateUrlBarVisibility(url);
+          updateBackButtonVisiblity(url);
+          // updateToolbarVisibility(false); // hide toolbar
+          urlInput.value = "";
+        }
+        // Get the exit button element
+        const exitBtn = document.getElementById("exit-btn");
+        const reloadBtn = document.getElementById("rld-btn");
+        const toolBar = document.getElementById("toolbar");
+        const browserWindow = document.querySelector(".browser-window");
+        // Hide exit button for test URLs
+        if (isTestUrl(url)) {
+          browserWindow.classList.add("hide-toolbar");
+          exitBtn.style.display = "none";
+          reloadBtn.style.display = "none";
+        } else {
+          // Show toolbar for non-test URLs
+          browserWindow.classList.remove("hide-toolbar");
+          exitBtn.style.display = "block";
+          reloadBtn.style.display = "block";
+
+          // Handle URL bar visibility for non-test URLs
+          if (isDashboardUrl(url)) {
+            browserWindow.classList.remove("hide-urlBar");
+            urlInput.value = url;
+          } else {
+            // browserWindow.classList.add('hide-urlBar');
+            urlInput.value = "";
+          }
+          // updateUrlBarVisibility(url);
+        }
+      }
+
+      // Update webview event listeners
+      webview.addEventListener("did-navigate", async (event) => {
+        const currentUrl = event.url;
+        // document.getElementById('loading-indicator').style.display = 'block';
+        handleUrlChange(currentUrl);
+
+        const url = webview.getURL();
+        // if (!(await validateNavigation(url))) {
+        //     webview.stop();
+        // }
+        console.log("Navigated to:", currentUrl);
+      });
+
+      webview.addEventListener("did-start-loading", async (event) => {
+        const url = webview.getURL();
+        console.log("url-->", url);
+        if (!url.includes("") && !(await validateEveryNavigation(url))) {
+          webview.stop();
+        }
+        console.log("did-start-loaing called");
+        if (!checkInternetAndNavigate(event.url)) {
+          webview.stop();
+        }
+      });
+
+      // webview.addEventListener('will-navigate', async (event) => {
+      //     const url = webview.getURL();
+      //     const browserWindow = document.querySelector('.browser-window');
+      //     if(url === HOME_URL || url.includes('/course')){
+      //         browserWindow.classList.remove('hide-urlBar');
+      //         console.log("Url logged");
+      //         urlInput.value = '';
+      //     }
+      // });
+
+      // webview.addEventListener('did-start-loading', async (event) => {
+      //     const url = webview.getURL();
+      //     if (!(await validateNavigation(url))) {
+      //         webview.stop();
+      //     }
+      // });
+
+      webview.addEventListener("did-navigate-in-page", (event) => {
+        const currentUrl = event.url;
+        // document.getElementById('loading-indicator').style.display = 'none';
+        handleUrlChange(currentUrl);
+        console.log("In-page navigation to:", currentUrl);
+      });
+      function showError(message) {
+        const errorDiv =
+          document.getElementById("error-message") || createErrorElement();
+        errorDiv.textContent = message;
+        errorDiv.style.display = "block";
+
+        setTimeout(() => {
+          errorDiv.style.display = "none";
+        }, 3000);
+      }
+      function createErrorElement() {
+        const div = document.createElement("div");
+        div.id = "error-message";
+        div.style.cssText = `
+                position: fixed;
+                top: ${isToolbarHidden ? "10px" : "70px"};
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: #ff4444;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 4px;
+                z-index: 999999;
+                display: none;
+                text-align: center;
+                font-weight: bold;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            `;
+        document.body.appendChild(div);
+        return div;
+      }
+      function handleOnline() {
+        isOnline = true;
+        if (reconnectionTimer) {
+          clearTimeout(reconnectionTimer);
+        }
+        hideError();
+      }
+      // Add this to hide error messages
+      function hideError() {
+        const errorDiv = document.getElementById("error-message");
+        if (errorDiv) {
+          errorDiv.style.display = "none";
+        }
+      }
+
+      function handleOffline() {
+        isOnline = false;
+        reconnectionTimer = setTimeout(() => {
+          if (!navigator.onLine && !isTestUrl(webview.src)) {
+            showError("Internet connection is disconnected");
+          }
+        }, 3000);
+      }
+      function checkInternetAndNavigate(url) {
+        if (!navigator.onLine && !isTestUrl(url)) {
+          showError("Internet connection is disconnected");
+          return false;
+        }
+        return true;
+      }
+      async function validateEveryNavigation(url) {
+        try {
+          isNavigating = true;
+
+          // Special handling for Chrome Web Store
+          if (url.includes("chromewebstore.google.com")) {
+            await webview.loadURL(url);
+            return true;
+          }
+
+          console.log("isNavigating-->");
+          // Add protocol if not present
+          if (!/^https?:\/\//i.test(url)) {
+            if (url.includes("examly.test")) {
+              url = "http://" + url; // Use http for test domains
+            } else {
+              url = "https://" + url; // Use https for other domains
+            }
+          }
+
+          // Check domain before navigation
+          if (!isAllowedDomain(url)) {
+            showError(
+              "The entered domain is not valid. Please provide a valid domain."
+            );
+            isNavigating = false;
+            return;
+          }
+          console.log("allowedDomain");
+          // Check if dashboard URL
+          // if (isDashboardUrl(url)) {
+          //     updateUrlBarVisibility(url);
+          // }
+
+          // Verify URL exists before loading
+          // Check if URL actually exists
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            const response = await fetch(url, {
+              method: "HEAD",
+              mode: "no-cors",
+              signal: controller.signal,
+            });
+
+            // If we can't connect to the URL, throw an error
+            if (!response.ok && response.status !== 0) {
+              throw new Error("Domain not accessible");
+            }
+          } catch (error) {
+            if (error.name === "AbortError") {
+              showError("This Site does not exist. Please check the URL.");
+            } else {
+              showError("This domain does not exist or is not accessible");
+            }
+            return;
+          }
+          await webview.loadURL(url);
+        } catch (error) {
+          showError(
+            "Navigation failed. Please ensure you are accessing an allowed domain."
+          );
+          console.error("Navigation error:", error);
+        } finally {
+          isNavigating = false;
+        }
+      }
+      // Modified navigate function with state tracking
+      async function navigate() {
+        if (isNavigating) {
+          console.log("Navigation already in progress");
+          return;
+        }
+
+        let url = urlInput.value.trim();
+        console.log("Navigating to:", url);
+        if (!url) return;
+
+        // if (!navigator.onLine && !isTestUrl(url)) {
+        //     showError('Internet connection is disconnected');
+        //     return;
+        // }
+
+        try {
+          isNavigating = true;
+          console.log("isNavigating-->");
+          // Add protocol if not present
+          if (!/^https?:\/\//i.test(url)) {
+            if (url.includes("examly.test")) {
+              url = "http://" + url; // Use http for test domains
+            } else {
+              url = "https://" + url; // Use https for other domains
+            }
+          }
+
+          // Check domain before navigation
+          if (!isAllowedDomain(url)) {
+            showError(
+              "The entered domain is not valid. Please provide a valid domain."
+            );
+            isNavigating = false;
+            return;
+          }
+          console.log("allowedDomain");
+          // Check if dashboard URL
+          if (isDashboardUrl(url)) {
+            updateUrlBarVisibility(url);
+          }
+
+          // Verify URL exists before loading
+          // Check if URL actually exists
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            const response = await fetch(url, {
+              method: "HEAD",
+              mode: "no-cors",
+              signal: controller.signal,
+            });
+
+            // If we can't connect to the URL, throw an error
+            if (!response.ok && response.status !== 0) {
+              throw new Error("Domain not accessible");
+            }
+          } catch (error) {
+            if (error.name === "AbortError") {
+              showError("This Site does not exist. Please check the URL.");
+            } else {
+              showError("This domain does not exist or is not accessible");
+            }
+            return;
+          }
+          await webview.loadURL(url);
+        } catch (error) {
+          console.log("url-->", url);
+          // if(url.includes(':4200')){
+          //     updateUrlBarVisibility(url);
+          //     return;
+          // }
+          showError(
+            "Navigation failed. Please ensure you are accessing an allowed domain."
+          );
+          console.error("Navigation error:", error);
+        } finally {
+          isNavigating = false;
+        }
+      }
+      const debouncedNavigate = debounceNavigation(navigate, 300);
+      // Update event listener to use debounced navigation
+      urlInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault(); // Prevent default to avoid multiple triggers
+          debouncedNavigate();
+        }
+      });
+
+      async function goBack() {
+        if (webview.canGoBack() && !isRestrictedEndpoint(webview.getURL())) {
+          webview.goBack();
+        }
+      }
+
+      async function goForward() {
+        if (webview.canGoForward()) {
+          webview.goForward();
+        }
+      }
+
+      async function refreshPage() {
+        if (checkInternetAndNavigate(webview.src)) {
+          webview.reload();
+        }
+      }
+
+      // Initialize
+      urlInput.value = HOME_URL;
+
+      // Keep toolbar visible by preventing pointer events on webview near toolbar
+      document.addEventListener("mousemove", (e) => {
+        if (e.clientY < 60) {
+          document.getElementById("toolbar").style.opacity = "1";
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadAdditionalDomains();
+
+        const webview = document.getElementById("webview");
+        const navButtons = document.querySelectorAll(
+          ".back-arrow, .back-forward, .refresh button, .exit-btn"
+        );
+
+        // Add global tab press detection
+        document.addEventListener("keydown", handleTabPress, true);
+
+        // Update test mode when URL changes
+        webview.addEventListener("did-navigate", (event) => {
+          isTestMode = isTestUrl(event.url);
+        });
+
+        // Prevent focus on navigation buttons
+        navButtons.forEach((button) => {
+          button.setAttribute("tabindex", "-1");
+
+          button.addEventListener("keydown", (e) => {
+            if (e.key === "Tab") {
+              e.preventDefault();
+              e.stopPropagation();
+              webview.focus();
+            }
+          });
+
+          button.addEventListener("focus", () => {
+            button.blur();
+            webview.focus();
+          });
+        });
+
+        // Keep webview focused except when using URL bar
+        webview.addEventListener("blur", () => {
+          if (!document.activeElement.closest(".url-bar")) {
+            webview.focus();
+          }
+        });
+
+        // Focus management
+        window.addEventListener("blur", () => {
+          if (!document.activeElement.closest(".url-bar")) {
+            webview.focus();
+          }
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden && !document.activeElement.closest(".url-bar")) {
+            webview.focus();
+          }
+        });
+
+        // Initialize focus
+        webview.focus();
+      });
+
+      function handleTabSwitch(event) {
+        if (event.key === "Tab") {
+          const currentTime = new Date().getTime();
+          // Detect rapid tab presses (tab switch attempt)
+          if (currentTime - lastTabTime < 500) {
+            // 500ms threshold
+            tabSwitchCount++;
+            console.log("Tab switch detected", tabSwitchCount);
+            event.preventDefault();
+            event.stopPropagation();
+
+            // You can emit this to your main process if needed
+            window.electronAPI.sendTabSwitchEvent(tabSwitchCount);
+
+            // Focus back to webview
+            webview.focus();
+            return false;
+          }
+          lastTabTime = currentTime;
+        }
+      }
+
+      function showDisplayWarning(message) {
+        // Create warning element if it doesn't exist
+        let warningElement = document.getElementById("display-warning");
+        if (!warningElement) {
+          warningElement = document.createElement("div");
+          warningElement.id = "display-warning";
+          document.body.appendChild(warningElement);
+        }
+
+        // Update warning message
+        warningElement.innerText = message;
+        warningElement.style.display = "block";
+      }
+
+      // Add these styles to your existing style section
+      const displayWarningStyles = `
+            #display-warning {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background-color: #ff4444;
+                color: white;
+                padding: 15px;
+                text-align: center;
+                z-index: 999999;
+                font-weight: bold;
+                display: none;
+            }
+        `;
+
+      const styleSheet = document.createElement("style");
+      styleSheet.textContent = displayWarningStyles;
+      document.head.appendChild(styleSheet);
+
+      // Add these to your existing JavaScript
+      let warningTimeout;
+
+      window.electronAPI.on("external-display-detected", (event, data) => {
+        // showDisplayWarning(data.message);
+        // Redirect to home page
+        const webview = document.getElementById("webview");
+        webview.src = "index.html";
+        document.getElementById("urlInput").value = "";
+      });
+
+      function showDisplayWarning(message) {
+        let warningElement = document.getElementById("display-warning");
+        if (!warningElement) {
+          warningElement = document.createElement("div");
+          warningElement.id = "display-warning";
+          document.body.appendChild(warningElement);
+        }
+
+        // Update warning message and show
+        warningElement.innerText = message;
+        warningElement.style.display = "block";
+        document.body.classList.add("warning-active");
+
+        // Clear existing timeout if any
+        if (warningTimeout) {
+          clearTimeout(warningTimeout);
+        }
+
+        // Auto-hide warning after 2.5 seconds (to ensure it's visible within the 3-second interval)
+        warningTimeout = setTimeout(() => {
+          warningElement.style.display = "none";
+          document.body.classList.remove("warning-active");
+        }, 2500);
+      }
+
+      async function exitApp() {
+        try {
+          await window.electronAPI.exitApp();
+        } catch (error) {
+          console.error("Error exiting app:", error);
+        }
+      }
+      updateUrlBarVisibility(HOME_URL);
+    </script>
+  </body>
+</html>

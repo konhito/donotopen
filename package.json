@@ -1,0 +1,46 @@
+{
+  "name": "neo-browser",
+  "version": "1.1.5",
+  "description": "A secure browser used for safe and secure online examinations. This browser blocks all malpractice-related applications like RDP (Remote Desktop Protocol) apps and is integrated with our custom Chrome extension to ensure a protected exam environment.",
+  "main": "main.js",
+  "author": {
+    "name": "iamneo.ai"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "electron-log": "^5.2.0",
+    "electron-updater": "^6.3.9",
+    "express": "^4.21.1",
+    "firebase-admin": "^12.7.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-global-key-listener": "^0.3.0",
+    "systeminformation": "^5.23.5",
+    "ws": "^8.18.0",
+    "wscat": "^6.0.1"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.11.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "protocols": [
+    {
+      "name": "neoexam",
+      "schemes": [
+        "neoexam"
+      ]
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Muzammil-Ayaz/neo-checker.git"
+  },
+  "permissions": [
+    "media",
+    "mediaDevices"
+  ]
+}
